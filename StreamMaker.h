@@ -34,12 +34,18 @@ class StreamMaker
         /**
          * read the daqFile
          */
-        void readDaqFile(const char* fileName);
+        void fillTree();
+
+        /**
+         * get the Run Number from the daq file extension
+         */
+        std::string getRunNumber();
 
     private:       
-        TTree* m_dataStream;
-        TTree* m_rawStream;
+        TTree* m_tree;
         std::string m_daqFileName;
+
+        const static unsigned int NCHANNEL = 7;
 
         bool isDataStream;
         bool isRawStream;

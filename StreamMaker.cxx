@@ -7,26 +7,46 @@
 #include <stdlib.h>
 #include <string>
 #include <vector>
+
 #include <TTree.h>
+#include <TROOT.h>
 
 
 StreamMaker::StreamMaker(std::string fileName):
-    m_dataStream(0),
-    m_rawStream(0),
+    m_tree(0),
     m_daqFileName(fileName)
 {
-    this->readDaqFile(fileName.c_str());
+    //Just for you ROOT.
+    gROOT->ProcessLine("#include <vector>");
 }
 
 StreamMaker::~StreamMaker()
-{}
+{
+    delete m_tree;
+}
 
 void StreamMaker::printInfo()
 {}
 
 
-void StreamMaker::readDaqFile(const char* fileName)
+void StreamMaker::fillTree()
 {
+    const char* fileName   = m_daqFileName.c_str();
+    //create tree branches
+    unsigned long bEventNo = 0;
+    unsigned long bTStamp  = 0;
+    std::vector<std::vector<unsigned short> > bChannels;
+
+    for(unsigned int i = 0; i < NCHANNEL; ++i)
+    {
+        bChannels.push_back(std::vector<unsigned short>());
+        std::cout << "creating channel branches: channel"<<i <<std::endl;
+        m_tree->Branch(Form("channel%d",i),&bChannels.at(i));
+    }
+
+    m_tree->Branch("EventNo/l",bEventNo);
+    m_tree->Branch("TStamp/l",bTStamp);
+    
     //First Read the File Header
     unsigned int nChannel;
     unsigned int lEvent;
@@ -52,7 +72,7 @@ void StreamMaker::readDaqFile(const char* fileName)
     std::istringstream ss3(temp);
 	ss3 >> lEvent;
 
-
+    fileH.close();
     ///////////////////////////////////////////////////////
     // Read the binary data from the file
     FILE *file;
@@ -121,10 +141,10 @@ void StreamMaker::readDaqFile(const char* fileName)
                 break;
 			}
 			
-			for (int i = 0; i < 7; ++i)
+			for (unsigned int i = 0; i < NCHANNEL; ++i)
 			{
-				//vector<unsigned short> & channel = channels.at(i);
-				//channel.clear();
+                std::vector<unsigned short> & channel = bChannels.at(i);
+				channel.clear();
 				
 				//Read the waveforms of the events
 				for (unsigned int j = 0; j < lEvent; ++j)
@@ -135,8 +155,9 @@ void StreamMaker::readDaqFile(const char* fileName)
                         std::cout << "Error: There is a value bigger then 2^14 in the data part."<<std::endl;
 						break;
 					}
-					//channel.push_back(buffer);
+					channel.push_back(buffer);
 				}
+                m_tree->Fill();
 			}
 		}
 		else 
@@ -146,14 +167,41 @@ void StreamMaker::readDaqFile(const char* fileName)
     }
 }
 
-void StreamMaker::makeRawStream()
+std::string StreamMaker::getRunNumber()
 {
     //trim the .run extension of the daqfilename and name the tree 
-    std::string runNum  = m_daqFileName.erase(m_daqFileName.find(".run"));
-    m_rawStream         = new TTree(runNum.c_str(),"rawfilename");
-    std::cout << "Raw File Name: " << m_rawStream->GetName() <<std::endl;
+    std::string daqFileName = m_daqFileName;
+    std::string runNum      = daqFileName.erase(daqFileName.find(".run"));
+    runNum.erase(runNum.find("run"),runNum.find("_"));
+
+    return runNum;
+}
+void StreamMaker::makeRawStream()
+{
+    std::cout << "In makeRawStream()... "<<std::endl;
+    if(!m_tree)
+    {
+        std::string treeName= "rawStream"+this->getRunNumber();
+        m_tree  = new TTree(treeName.c_str(),"rawStream");
+        this->fillTree();
+    }
+    else
+    {
+        std::cout <<"Cannot do makeRawStream(): tree is not empty" <<std::endl;
+    }
 }
 
 void StreamMaker::makeDataStream()
 {
+    std::cout <<"In makeDataStream()... " <<std::endl;
+    if(!m_tree)
+    {
+        std::string treeName = "dataStream"+this->getRunNumber();
+        m_tree  = new TTree(treeName.c_str(),"dataStream");
+        this->fillTree();
+    }
+    else
+    {
+        std::cout <<"Cannot do makeDataStream(): treee is not empty"<<std::endl;
+    }
 }
