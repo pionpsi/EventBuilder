@@ -8,9 +8,10 @@
 #include <string>
 #include <vector>
 
+#include <TFile.h>
 #include <TTree.h>
 #include <TROOT.h>
-
+#include <TString.h>
 
 StreamMaker::StreamMaker(std::string fileName):
     m_tree(0),
@@ -18,6 +19,8 @@ StreamMaker::StreamMaker(std::string fileName):
 {
     //Just for you ROOT.
     gROOT->ProcessLine("#include <vector>");
+
+    m_channels.resize(NCHANNEL);
 }
 
 StreamMaker::~StreamMaker()
@@ -39,20 +42,32 @@ void StreamMaker::fillTree()
 
     for(unsigned int i = 0; i < NCHANNEL; ++i)
     {
-        bChannels.push_back(std::vector<unsigned short>());
-        std::cout << "creating channel branches: channel"<<i <<std::endl;
-        m_tree->Branch(Form("channel%d",i),&bChannels.at(i));
-    }
+        std::vector<unsigned short> data;
+        bChannels.push_back(data);
 
-    m_tree->Branch("EventNo/l",bEventNo);
-    m_tree->Branch("TStamp/l",bTStamp);
+        std::stringstream ss;
+        std::string str;
+        ss << "channel"<<i;
+        ss >> str;
+        //m_tree->Branch(str.c_str(),&bChannels.at(i));
+    }
+    m_tree->Branch("EventNo",&bEventNo,"EventNo/I");
+    m_tree->Branch("TStamp",&bTStamp,"TStamp/I");
     
+    m_tree->Branch("channel0",&bChannels.at(0));
+    m_tree->Branch("channel1",&bChannels.at(1));
+    m_tree->Branch("channel2",&bChannels.at(2));
+    m_tree->Branch("channel3",&bChannels.at(3));
+    m_tree->Branch("channel4",&bChannels.at(4));
+    m_tree->Branch("channel5",&bChannels.at(5));
+    m_tree->Branch("channel6",&bChannels.at(6));
+
+
     //First Read the File Header
     unsigned int nChannel;
     unsigned int lEvent;
     unsigned int runNo;
     std::string date;
-
 
     //Read the Header
     ifstream fileH (fileName);
@@ -72,7 +87,7 @@ void StreamMaker::fillTree()
     std::istringstream ss3(temp);
 	ss3 >> lEvent;
 
-    fileH.close();
+    //fileH.close();
     ///////////////////////////////////////////////////////
     // Read the binary data from the file
     FILE *file;
@@ -115,7 +130,11 @@ void StreamMaker::fillTree()
     while(fread(&bufferL,4,1,file))
     {
         //Test if each block starts with 0xCCCCCCC
-        if(bufferL  == 0xCCCCCCCC)
+        if(bufferL  != 0xCCCCCCCC)
+        {
+            std::cout << "Error: Corrupt data structur" << std::endl;
+        }
+        else
         {
             //Read out the event header and check it against the file header values
 			fread(&bufferL,4,1,file);
@@ -125,7 +144,7 @@ void StreamMaker::fillTree()
                 break;
 			}
 			fread(&TStamp,4,1,file);
-			//cout << "Event: " << std::dec << eventNo-1 << "(" << TStamp << ")" << endl;
+            std::cout << "Event: " << std::dec << eventNo-1 << "(" << TStamp << ")" << std::endl;
 
 			fread(&bufferL,4,1,file);
 			if(bufferL != (unsigned long)nChannel)
@@ -141,6 +160,8 @@ void StreamMaker::fillTree()
                 break;
 			}
 			
+            bEventNo    = eventNo;
+            bTStamp     = TStamp;
 			for (unsigned int i = 0; i < NCHANNEL; ++i)
 			{
                 std::vector<unsigned short> & channel = bChannels.at(i);
@@ -157,12 +178,9 @@ void StreamMaker::fillTree()
 					}
 					channel.push_back(buffer);
 				}
-                m_tree->Fill();
 			}
-		}
-		else 
-		{
-            std::cout << "Error: Corrupt data structur" << std::endl;
+			//Fill root tree	
+			m_tree->Fill();
         }
     }
 }
@@ -189,6 +207,22 @@ void StreamMaker::makeRawStream()
     {
         std::cout <<"Cannot do makeRawStream(): tree is not empty" <<std::endl;
     }
+}
+
+void StreamMaker::writeTree(std::string fileName)
+{
+    TFile* f= new TFile(fileName.c_str(),"RECREATE");
+    m_tree->Write();
+
+    f->Close();
+}
+
+TTree* StreamMaker::getStream()
+{
+    TTree *returnTree   = static_cast<TTree*>(m_tree->Clone());
+    m_tree = 0;
+    
+    return returnTree;
 }
 
 void StreamMaker::makeDataStream()
