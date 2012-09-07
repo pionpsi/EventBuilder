@@ -3,6 +3,6 @@
 
 int main()
 {
-    StreamMaker *stream = new StreamMaker();
-
+    StreamMaker *stream = new StreamMaker("run_0191.run");
+    stream->makeRawStream();
 }
