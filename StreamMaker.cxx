@@ -4,7 +4,7 @@
 #include <fstream>
 #include <stdio.h>
 #include <sstream>
-#include <stdlib.h>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -20,7 +20,6 @@ StreamMaker::StreamMaker(std::string fileName):
     //Just for you ROOT.
     gROOT->ProcessLine("#include <vector>");
 
-    m_channels.resize(NCHANNEL);
 }
 
 StreamMaker::~StreamMaker()
@@ -49,7 +48,6 @@ void StreamMaker::fillTree()
         std::string str;
         ss << "channel"<<i;
         ss >> str;
-        //m_tree->Branch(str.c_str(),&bChannels.at(i));
     }
     m_tree->Branch("EventNo",&bEventNo,"EventNo/I");
     m_tree->Branch("TStamp",&bTStamp,"TStamp/I");
@@ -188,19 +186,26 @@ void StreamMaker::fillTree()
 std::string StreamMaker::getRunNumber()
 {
     //trim the .run extension of the daqfilename and name the tree 
-    std::string daqFileName = m_daqFileName;
-    std::string runNum      = daqFileName.erase(daqFileName.find(".run"));
-    runNum.erase(runNum.find("run"),runNum.find("_"));
+    std::stringstream ss;
+    std::string s;
+    const char* daqFileName       = basename(m_daqFileName.c_str());
+    ss << daqFileName;
+    ss>>s;
 
+    std::string runNum      = s.erase(s.find(".run"));
+    runNum.erase(runNum.find("run"),(runNum.find("_")+1));
+
+    std::cout <<"GETRUNNUMBER" <<runNum <<std::endl;
     return runNum;
 }
+
 void StreamMaker::makeRawStream()
 {
     std::cout << "In makeRawStream()... "<<std::endl;
     if(!m_tree)
     {
-        std::string treeName= "rawStream"+this->getRunNumber();
-        m_tree  = new TTree(treeName.c_str(),"rawStream");
+        //std::string treeName= "rawStream_"+this->getRunNumber();
+        m_tree  = new TTree("myTree","rawStream");
         this->fillTree();
     }
     else
@@ -219,10 +224,11 @@ void StreamMaker::writeTree(std::string fileName)
 
 TTree* StreamMaker::getStream()
 {
-    TTree *returnTree   = static_cast<TTree*>(m_tree->Clone());
-    m_tree = 0;
+    //TTree *returnTree   = static_cast<TTree*>(m_tree->Clone());
+    //m_tree = 0;
     
-    return returnTree;
+    //return returnTree;
+    return m_tree;
 }
 
 void StreamMaker::makeDataStream()
