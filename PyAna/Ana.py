@@ -17,30 +17,30 @@ def getMinMax(plot):
 
 
 
-def makeChPlots(tree,chan):
-    evCounter=0
-    h = ROOT.TH1F(chan,chan,50,1,-1)
-    ROOT.SetOwnership(h,False)
-    for event in tree:
-        gr      = ROOT.TGraph()
-        gr.SetTitle(chan+": event:"+str(evCounter))
+def getChPlot(event,chan):
+    gr      = ROOT.TGraph()
+    evID    = event.EventNo
+    gr.SetTitle(chan+": event:"+str(evID))
+    
+    print "Event: ",evID
+
+    channel = getattr(event,chan)
+    counter = 1
+    for sample in channel:
+        '''SetPoint(int entry, float x, floaty)'''
+        gr.SetPoint(counter, (counter -1), sample)
+        counter +=1
+
+    return gr
+
+def FillChannelSummary(tree, channel,hist):
+    gr      = getChPlot(tree, channel)
+    minmax  = getMinMax(gr)
+    if(minmax[1] - minmax[0] > 10):
+        hist.Fill( minmax[1] - minmax[0])
         
-        evCounter +=1
-        print "Event: ",evCounter
-
-        channel = getattr(event,chan)
-        counter = 1
-        for sample in channel:
-            '''SetPoint(int entry, float x, floaty)'''
-            gr.SetPoint(counter, (counter -1), sample)
-            counter +=1
-
-
-        minMax = getMinMax(gr)
-        h.Fill(minMax[1] - minMax[0])
-
-    print h.GetEntries()
-    h.Draw()
+    gr.Draw("Alp")
+    ROOT.gPad.Update()
 
 
 #end of functions
@@ -51,13 +51,22 @@ if(len(sys.argv)>1):
     f = ROOT.TFile(sys.argv[1])
     tree = f.Get("myTree")
 
-    #makeChPlots(tree,"channel0") #TAC
-    #makeChPlots(tree,"channel1") #Calo 1
-    #makeChPlots(tree,"channel2") #Calo 2-7
-    makeChPlots(tree,"channel3")  #PiStop
-    #makeChPlots(tree,"channel4")
-    #makeChPlots(tree,"channel5")
-    #makeChPlots(tree,"channel6")
+    hlist = []
+    hlist.append(ROOT.TH1F("Ch0","channel 0",500,1,-1))
+    hlist.append(ROOT.TH1F("Ch1","channel 1",500,1,-1))
+    hlist.append(ROOT.TH1F("Ch2","channel 2",500,1,-1))
+    hlist.append(ROOT.TH1F("Ch3","channel 3",500,1,-1))
+    hlist.append(ROOT.TH1F("Ch4","channel 4",500,1,-1))
+    hlist.append(ROOT.TH1F("Ch5","channel 5",500,1,-1))
+    hlist.append(ROOT.TH1F("Ch6","channel 6",500,1,-1))
 
-else:
-    print "Expecting an input ROOT file"
+    for event in tree:
+
+        for i in xrange(7):
+            FillChannelSummary(tree,"channel"+str(i),hlist[i])
+
+    c = ROOT.TCanvas()
+    c.Divide(2,4)
+    for i in xrange(7):
+        c.cd(i+1)
+        hlist[i].Draw()
