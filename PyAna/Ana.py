@@ -61,12 +61,14 @@ if(len(sys.argv)>1):
     hlist.append(ROOT.TH1F("Ch6","channel 6",500,1,-1))
 
     for event in tree:
-
+        c1 = ROOT.TCanvas()
+        #ROOT.SetOwnership(c1,False)
         for i in xrange(7):
             FillChannelSummary(tree,"channel"+str(i),hlist[i])
 
-    c = ROOT.TCanvas()
-    c.Divide(2,4)
+
+    c2 = ROOT.TCanvas()
+    c2.Divide(2,4)
     for i in xrange(7):
-        c.cd(i+1)
+        c2.cd(i+1)
         hlist[i].Draw()
